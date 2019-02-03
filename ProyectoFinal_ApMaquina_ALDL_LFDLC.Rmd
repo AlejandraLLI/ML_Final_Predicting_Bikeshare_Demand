@@ -1,0 +1,591 @@
+---
+title: "Proyecto Final Aprendizaje de Máquina"
+subtitle: "Sistema para compartir bicicletas: pronóstico de rentas según las condiciones climáticas y ambientales. "
+
+author:
+- "Alejandra Lelo de Larrea Ibarra 000124433"
+- "Luis Fernando Cantú Díaz de León 000125755"
+
+date: "15 de diciembre del 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# setwd("E:/ITAM Maestría/Otoño 2017/Aprendizaje de Máquina/Proyecto Final/Proyecto Bicicletas")
+setwd("~/Documents/ITAM_Maestria/01_Otono_2017/Aprendizaje_de_Maquina/Proyecto_Final")
+```
+
+```{r librerias, echo=FALSE, message=FALSE, warning=FALSE}
+
+# Descargar librerías de Aprendizaje de Maquina
+# install.packages("knitr")
+# install.packages("tidyverse")
+# install.packages("ISLR")
+# install.packages("data.table")
+# install.packages("kknn")
+# install.packages("ROCR")
+# install.packages("glmnet")
+# install.packages("rpart")
+# install.packages("rpart.plot")
+# install.packages("randomForest")
+# install.packages("gbm")
+# install.packages("rgeos")
+# install.packages("maptools")
+# install.packages("maps")
+# install.packages("ggpubr")
+
+# Cargar  de Aprendizaje de Maquina
+library(knitr)
+library(tidyverse) # incluye ggplot2, dplyr, purrr, readr,readxl, tidyr
+library(ISLR)
+library(data.table)
+library(kknn) # Para vecinos ms cercanos
+library(ROCR)
+library(glmnet)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+library(rgeos)
+library(maptools)
+library(maps)
+library(ggpubr)
+
+```
+<!-- ----------------------PROBLEMA Y OBJETIVO-------------------------------- -->
+
+
+# Problema y Objetivo 
+Los sistemas para compartir bicicletas (como EcoBici en México) son una nueva generación del tradicional alquiler de bicicletas. En éstos todo el proceso de membresía, alquiler y devolución se ha automatizado. Hoy en día, existe un gran interés en estos sistemas debido a su importante papel en la reducción del tráfico vehicular, el cuidado del medio ambiente y la reducción en los problemas de salud. Actualmente, hay alrededor de 500 programas para compartir bicicletas en todo el mundo que se componen de más de 500 mil bicicletas.
+
+
+A través de estos sistemas, el usuario puede alquilar una bicicleta fácilmente desde una estación particular y regresarla en una estación que no tiene por qué coincidir con la inicial. Opuesto a otros servicios de transporte como el autobús o el metro, la duración del viaje, la posición de salida y la de llegada se registran explícitamente en estos sistemas. Esta característica convierte el sistema de intercambio de bicicletas en una red de sensores virtuales que se puede usar para detectar la movilidad en la ciudad y otras características. Por ejemplo, el proceso de alquiler de bicicletas compartidas está altamente correlacionado con las condiciones ambientales. Las condiciones climáticas, la precipitación, el día de la semana, la estación del año, la hora del día, etc. pueden afectar las conductas de alquiler. 
+
+
+De esta manera, se busca predecir el número de bicicletas rentadas por hora según las condiciones climáticas y ambientales y comparar los resultados obtenidos con distintos métodos vistos en clase. Para ello, se utiliza el registro histórico (años 2011 y 2012) del sistema Capital Bikeshare, Washington D.C., EE. UU.[^1] La base de datos contiene 17,379 observaciones para 17 variables; entre ellas se encuentran: la fecha y hora, estación del año, si el día es laborable o no, tipo de clima, condiciones ambientales (temperatura, humedad, etc) y número de bicicletas rentadas (variable de interés). Los  métodos a utilizar para la estimación y comparación son: regresión lineal, regresión lineal con regularización, redes neuronales, bosques aleatorios y gradient boosting machine. 
+[^1]: Los datos fueron recuperados de UCI Machine Learning Repository https://archive.ics.uci.edu/ml/datasets/bike+sharing+dataset
+
+
+
+<!-- ----------------------DATOS Y ANALISIS DESCRIPTIVO---------------------- -->
+
+# Datos y análisis descriptivo 
+```{r datos, cache=TRUE}
+# Se leen los datos 
+# datos<-read.csv("E:/ITAM Maestría/Otoño 2017/Aprendizaje de Máquina/Proyecto Final/Proyecto Bicicletas/hour.csv")
+datos<-read.csv("~/Documents/ITAM_Maestria/01_Otono_2017/Aprendizaje_de_Maquina/Proyecto_Final/hour.csv")
+dim(datos)
+
+```
+
+
+<!-- ------------VARIABLES------------ -->
+## Variables
+Las variables contenidas en la base de datos son: 
+
+* instant: índice de observaciones 
+* dteday : fecha
+* season : Estación del año (1=primavera, 2=verano, 3=otoño, 4=invierno)
+* yr : año (0=2011, 1=2012)
+*	mnth : mes ( 1 to 12)
+* hr : hora (0 to 23)
+* holiday : día festivo (1) o no festivo (0) 
+* weekday : día de la semana (0 a 6 con 0=Domingo)
+* workingday : día laboral (1= no es fin de semana ni festivo, 0 e.o.c.)
+* weathersit : clima
+
+		+ 1 = Claro, Pocas nubes, Parcialmente nublado, Parcialmente nublado
+		+ 2 = Niebla + Nublado, Niebla + Nubes fragmentadas, Niebla + Pocas nubes, Niebla
+		+ 3 = Nieve ligera, lluvia ligera + tormenta eléctrica + nubes dispersas, lluvia ligera + nubes dispersasred clouds
+		+ 4 = luvia pesada + paletas de hielo + tormenta + niebla, nieve + nieblaist, Snow + Fog
+		
+* temp : Temperatura normalizada en grados Celcius. Divididos entre 41 (máximo)
+* atemp: Sensación térmica normalizada en grados Celcius. Divididos entre 50 (máximo)
+* hum: Humedad normalizada. Divididos entre 100 (máximo)
+* windspeed: velocidad del viendo normalizada. Divididos entre 67 (máximo)
+* casual: número de usuarios casuales
+* registered: número de usuarios registrados
+* cnt: número total de bicicletas rentadas (incluye usuarios casuales y registrados)
+
+```{r headDatos, cache=TRUE, dependson=c('datos')}
+
+head(datos)
+
+```
+
+<!-- ------------VISUALIZACIÓN DE DATOS------------ -->
+## Visualización de datos 
+
+<!-- ------------MANIPULACIÓN DE DATOS------------ -->
+## Manipulación de datos 
+
+En primer lugar, eliminamos las variables *casual* y *registered* pues son variables que no se tendrán en la verdadera tarea de predicción.  Transformarmos las variables categóricas (season, mnth, hr, weekday y  weathersit ) en dummies para facilitar su manejo en algunos modelos. 
+```{r ManipulacionDatos, cache=TRUE, dependson=c('datos')}
+
+# Eliminamos las variables casual y registered
+datos<-datos%>%select(-c(casual,registered))
+
+# Almacenamos la fecha
+fecha<-paste(datos$dteday,datos$hr,sep="/")
+ 
+# Se asignan como factores las variables casual y registred pues  
+cols<-match(c('season', 'mnth', 'hr', 'weekday','weathersit'),names(datos))
+datos[cols]<-lapply(datos[,cols],as.factor)
+
+# Se crea una dummy para cada categoría (menos una)
+auxdatos<-model.matrix(~0+season+mnth+hr+weekday+weathersit,datos)
+
+# Se eliminan las varaibles categóricas y se agregan las dummies
+datos<-datos%>%select(-c(season, mnth, hr, weekday,weathersit))%>%cbind(auxdatos)
+head(datos)
+```
+
+
+<!-- ----------------------SEPARACION DE MUESTRAS---------------------- -->
+# Separación de muestras
+
+La separación de muestras se realizará sobre la línea de tiempo: 
+1. Muestra de entrenamiento: datos por hora del 1° de enero del 2011 al 31 de diciembre del 2011 (aprox. 50% de las observaciones) 
+2. Muestra de validación: datos por hora del 1° de enero del 2012 al 30 de junio del 2012 (aprox. 25% de las observaciones)
+3. Muestra de prueba: datos por hora del 1 de julio del 2012 al 31 de diciembre del 2012 (aprox. 25% de las observaciones) 
+
+```{r SeparacionMuestras, cache=TRUE, dependson=c('ManipulacionDatos')}
+# Se buscan los renglones correspondientes a las fechas en que hará la división de las muestras
+ind_valid<-match("2012-01-01",datos$dteday)
+ind_test<-match("2012-07-01",datos$dteday)
+
+# Se separan las muestras 
+train<-datos[1:(ind_valid-1),]
+valid<-datos[ind_valid:(ind_test-1),]
+test<-datos[ind_test:nrow(datos),]
+
+
+# Porcentaje de observaciones para cada muestra
+p_train<-nrow(train)/nrow(datos)
+p_valid<-nrow(valid)/nrow(datos)
+p_test<-nrow(test)/nrow(datos)
+
+# Resumen de separación de muestras.
+muestra<-data.frame(Muestra=c('Entrenamiento','Validación','Prueba'),No.Obs=c(nrow(train),nrow(valid),nrow(test)),Porcentaje=c(p_train,p_valid,p_test))
+muestra
+
+```
+
+Una vez separadas las muestras, se estandarizan las variables numéricas (menos la respuesta) en los datos de entrenamiento y, con esas medias y varianzas, se estandarizan los datos de validación y prueba. 
+```{r Estandarizar, cache=TRUE, dependson=c('SeparacionMuestras'),message=FALSE}
+
+# Función normalizar
+normalizar_train<-function(datos,datos_MeanSD){
+  datos%>%
+    gather(Variable,Valor,c(temp,atemp,hum,windspeed)) %>% #apilamos los datos
+    left_join(datos_MeanSD) %>% # se pega la media y desv correspondiente
+    mutate(Valor_norm=(Valor-media)/de) %>% #se estandariza
+    select(id,Variable,Valor_norm) %>% #se seleccionana las columnas 
+    spread(Variable,Valor_norm) %>%# se desapilan los datos.
+    select(-id)#Se elimina la columna id
+}
+
+
+# obtenemos media y desviación estándar de la muestra de entrenamiento.
+train_MeanSD<-train %>% 
+  gather(Variable, Valor,c(temp,atemp,hum,windspeed)) %>% # Apilamos
+  group_by(Variable) %>% # Agrupamos por variable
+  summarise(media=mean(Valor), de=sd(Valor)) # calcula media y desviación.
+
+#---- Normalizamos los datos de entrenamiento ----
+train$id<-1:nrow(train)
+
+# Se normalizan los datos de entranmiento.
+train_norm<-normalizar_train(train,train_MeanSD)
+
+# Se reordenan las columnas
+train<-train %>% select(-id)
+cols<-match(colnames(train_norm),colnames(train))
+train[,cols]<-train_norm
+
+# Se elimina la variable fecha y el no. de observacion
+train<-train%>%select(-c(instant,dteday))
+
+
+
+#---- Normalizamos los datos de validación----
+valid$id<-1:nrow(valid)
+
+# Se normalizan los datos de entranmiento.
+valid_norm<-normalizar_train(valid,train_MeanSD)
+
+# Se reordenan las columnas
+valid<-valid%>%select(-id)
+cols<-match(colnames(valid_norm),colnames(valid))
+valid[,cols]<-valid_norm
+
+# Se elimina la variable fecha y el no. de observacion
+valid<-valid%>%select(-c(instant,dteday))
+
+
+#---- Normalizamos los datos de prueba----
+test$id<-1:nrow(test)
+
+# Se normalizan los datos de entranmiento.
+test_norm<-normalizar_train(test,train_MeanSD)
+
+# Se reordenan las columnas
+test<-test%>%select(-id)
+cols<-match(colnames(test_norm),colnames(test))
+test[,cols]<-test_norm
+
+# Se elimina la variable fecha y el no. de observacion
+test<-test%>%select(-c(instant,dteday))
+
+```
+
+<!-- ----------------------Ajuste y validación de modelos ---------------------- -->
+# Ajuste y Validación de modelos 
+
+En esta sección realizamos el ajuste del modelo con distintos métodos vistos en clase. Dentro de cada método, la selección de hiperparámetros se realiza con base en el menor error de validación. 
+
+<!-- ----------------------REGRESIÓN LINEAL---------------------- -->
+## Regresión Lineal
+
+
+<!-- ----------------------REGRESIÓN LINEAL CON REGULARIZACIÓN---------------------- -->
+## Regresión Lineal con regularización
+
+```{r Funciones}
+
+# Regresión lasso
+ajustar_RegLasso<-function(data_x,data_y){
+  
+  out_fun<-function(lambda=0.1,alpha=1){
+    
+    mod_glm<-glmnet(x=data_x, y=data_y,
+           alpha=alpha,
+           family='gaussian',
+           intercept=F, 
+           lambda=lambda)
+    
+    mod_glm
+
+  }
+  
+  out_fun
+}
+
+# Evaluación Modelos 
+Eval_RegLasso<-function(data_x,data_y){
+  
+  fun_eval<-function(lasso_ajust,lambda){
+    
+    # Se obtienen las prediciones
+    y_hat<-predict(lasso_ajust,newx=data_x,s=lambda)
+    
+    # Se obtiene el ECM
+    sqrt(mean((data_y-y_hat)^2))
+  }
+}
+
+```
+
+```{r lambdas, cache=TRUE, dependson=c('Estandarizar','Funciones')}
+
+# %%%%%%%%%%%%%%%%%%%%%% Calibración hiperparámetros %%%%%%%%%%%%%%%%%%%%%%
+
+# Se extraen los datos de entrnamiento y validación  para correr el modelo. 
+data_x_train_RegLasso<-as.matrix(train%>%select(-cnt))
+data_y_train_RegLasso<-as.matrix(train%>%select(cnt))
+
+data_x_valid_RegLasso<-as.matrix(valid%>%select(-cnt))
+data_y_valid_RegLasso<-as.matrix(valid%>%select(cnt))
+
+# Se fijan distintos valores de lambda
+RegLasso_modelos<-data.frame(lambdas=exp(seq(-3,3,0.1)))
+
+# Se evalúa la función ajustar_RegLasso 
+RegLasso_hiper<-ajustar_RegLasso(data_x_train_RegLasso,data_y_train_RegLasso)
+
+# Se evalúan la funcion Eval_RegLasso en las muestras de entrenamiento y validación
+Eval_train_RegLasso<-Eval_RegLasso(data_x_train_RegLasso,data_y_train_RegLasso)
+Eval_valid_RegLasso<-Eval_RegLasso(data_x_valid_RegLasso,data_y_valid_RegLasso)
+
+coef_RegLasso<-matrix(0,ncol(data_x_train_RegLasso),length(RegLasso_modelos$lambdas))
+
+# Se obtiene el ajuste, 
+for(i in 1:length(RegLasso_modelos$lambdas)){
+  
+  mod<-RegLasso_hiper(RegLasso_modelos$lambdas[i],alpha=1)
+  
+  RegLasso_modelos$Err_Train[i]<-Eval_train_RegLasso(mod,RegLasso_modelos$lambdas[i])
+  RegLasso_modelos$Err_Valid[i]<-Eval_valid_RegLasso(mod,RegLasso_modelos$lambdas[i])
+
+  coef_RegLasso[,i]<-as.vector(coef(mod))[2:length(coef(mod))]
+}
+
+# Se ordenan los modelos por devianza de validación
+RegLasso_modelos<-RegLasso_modelos%>%arrange(Err_Valid)
+head(RegLasso_modelos,20)
+
+```
+
+```{r graficasEvol_Laasso,cache=TRUE, dependson=c('lambdas')}
+
+# Se grafica la raíz del ECM para cada valor de lambda
+data_plot_Lasso<-RegLasso_modelos%>%
+  gather(Tipo,Error,Err_Train:Err_Valid)%>%
+  mutate(Tipo=substring(Tipo,5))
+
+# Gráfica de Lambdas 
+ggplot(data_plot_Lasso,aes(x=log(lambdas),y=Error,colour=Tipo))+geom_point()
+
+# Se grafican los coeficientes  
+matplot(x=log(RegLasso_modelos$lambdas),y=t(coef_RegLasso),type='l',lty=1,lwd=1,xlab='log(lambda)',ylab='coeficientes')
+     
+
+```
+
+Se hacen las predicciones con el mejor modelo encontrado. 
+```{r BestRegLasso, cache=TRUE, dependson=c('lambdas')}
+
+# Se extrae la lambda que da el menor error de validación
+lambda_best<-RegLasso_modelos$lambdas[1]
+
+# Se evalua el mejor modelo
+mod_RegLasso_best<-RegLasso_hiper(lambda_best,alpha=1)
+
+# Se obtienen las predicciones
+cnt_train_RegLasso<-predict(mod_RegLasso_best,newx=data_x_train_RegLasso,s=lambda_best)
+cnt_valid_RegLasso<-predict(mod_RegLasso_best,newx=data_x_valid_RegLasso,s=lambda_best)
+
+# # Se grafican los datos .
+# data_ajuste_RegLasso<-data.frame(Id=1:nrow(train),
+#                                  Fecha=fecha[1:nrow(train)],
+#                                  cnt_Obs=train$cnt,
+#                                  cnt_Ajust=as.vector(cnt_Train_RegLasso))%>%
+#   gather(Tipo,Cnt,cnt_Obs:cnt_Ajust)%>%mutate(Tipo=substring(Tipo,5))
+# 
+# ggplot(data_ajuste_RegLasso,aes(x=Id,y=Cnt,colour=Tipo))+geom_line()
+
+# Se grafican los datos .
+data_ajuste_RegLasso<-data.frame(Muestra=c(rep("Train",nrow(train)),rep("Valid",nrow(valid))),
+                                 Fecha=fecha[1:(ind_test-1)],
+                                 cnt_Obs=c(train$cnt,valid$cnt),
+                                 cnt_Ajust=c(cnt_train_RegLasso,cnt_valid_RegLasso))
+
+ggplot(data_ajuste_RegLasso,aes(x=cnt_Obs,y=cnt_Ajust,colour=Muestra))+geom_point()+geom_abline(slope=1,intercept=0,lwd=1.5)  
+
+```
+
+
+<!-- ----------------------RED NEURONAL---------------------- -->
+## Redes Neuronales
+
+<!-- ----------------------BOSQUE ALEATORIO---------------------- -->
+## Bosque Aleatorio
+
+<!-- ----------------------GRADIENT BOOSTING MACHINE---------------------- -->
+## Gradient Boosting Machine
+
+Se modela el problema con GBM probando distintos valores para los hiperparámetros n.trees, interaction.depth, shrinkage y bag.fraction. En particular se consideran los siguientes valores de los hiperparámetros: 
+
+* n.trees: 100, 250, 500, 750, 1000
+* interaction.depth: 1, 2, 3, 4
+* shrinkage: 0.001,0.005, 0.01, 0.05, 0.1, 0.5, 1
+* bag.fraction: 0.25, 0.5, 0.75, 1
+
+Dado que gbm utiliza las primeras *train.fraction* observaciones para *entrenamiento* y las siguientes *1-train.fraction* observaciones para hacer la *validación*, debemos ingresar los datos como una matriz de la forma $data=[train, valid]'$ y especificar el porcentaje que ocupa la muestra de entrenamiento. 
+
+```{r Funciones_gbm,cache=TRUE, tidy=TRUE}
+
+#Función gbm
+ajustar_boosting<-function(data.frame){
+  
+  out_fun<-function(n.trees=500, interaction.depth=1,
+                    shrinkage=0.1, bag.fraction=1,...){
+    
+    mod_boosting<-gbm(cnt~.,
+                    data=data.frame,
+                    distribution='gaussian', # Reg. logística
+                    n.trees=n.trees, #no. arboles
+                    interaction.depth =interaction.depth, #Grado de interacción variables
+                    shrinkage=shrinkage, # Tasa de aprendizaje
+                    bag.fraction=bag.fraction, # % de datos de entrenamiento
+                    train.fraction = p_train, # Procentaje para entrenamiento
+                    keep.data=TRUE)
+    mod_boosting
+    
+  }
+  
+  out_fun
+  
+}
+
+
+# Evaluación Modelos 
+Eval_gbm<-function(data){
+  
+  fun_eval<-function(gbm_ajust){
+    
+    # se seleccionan las variables indpe. 
+    data_x<-data%>% select(-cnt)
+    
+    # Se obtienen las prediciones
+    cnt_hat<-predict.gbm(gbm_ajust,newdata=data_x,n.trees=gbm_ajust$n.trees,type='response')
+    
+    # Se obtiene el ECM
+    sqrt(mean((data$cnt-cnt_hat)^2))
+  }
+}
+
+
+
+```
+
+En total se corren `r 5*4*7*4` modelos (correspondientes a todas las posibles coibnaciones de hiperparámetros) y se elige el modelo que tenga menor error de validación. La siguiente tabla muestra los resultados obtenidos. 
+```{r Calibracion_Hiperparams_gbm,cache=TRUE, dependson=c('Funciones_gbm')}
+
+# Se obtienen todas las combinaciones posibles de hiperparámetros
+# params<-list(n.trees=c(100,250,500,750,1000),
+#                   interaction.depth=c(1,2,3,4),
+#                   shrinkage=c(0.001,0.005,0.01,0.05,0.1,0.5,1),
+#                   bag.fraction=c(0.25,0.5,0.75,1))%>%expand.grid
+
+params<-list(n.trees=c(100,250,500,1000),
+                  interaction.depth=c(1,2,3),
+                  shrinkage=c(0.001,0.01,0.1,1),
+                  bag.fraction=c(0.25,0.5,0.75,1))%>%expand.grid
+
+# params<-list(n.trees=c(100,250),
+#                   interaction.depth=c(1),
+#                   shrinkage=c(0.1),
+#                   bag.fraction=c(0.25))%>%expand.grid
+
+
+# Se juntan las muestras de entrenamiento y validación. 
+data_train_gbm<-rbind(train,valid)
+
+
+# %%%%%%%%%%%%%%%%%%%%%% Calibración hiperparámetros modelo cocina %%%%%%%%%%%%%%%%%%%%%%
+
+# Se evalúan la funciones ajustar_boosting en los datos de entrenamiento y validacion
+gbm_hiper<-ajustar_boosting(data_train_gbm)
+
+# Se evalua la función Eval_gbm en la muestra de entrenamiento y de validación.
+Eval_train_gbm<-Eval_gbm(train)
+Eval_valid_gbm<-Eval_gbm(valid)
+
+# Se corre un modelo gbm para cada combinación de hiperparámetros.
+modelos_gbm<-params%>%
+  mutate(modelo=pmap(.,gbm_hiper))%>%
+  mutate(Err_Train=unlist(lapply(modelo,Eval_train_gbm)))%>%
+  mutate(Err_Valid=unlist(lapply(modelo,Eval_valid_gbm)))%>%
+  select(n.trees,interaction.depth,shrinkage,bag.fraction,Err_Train,Err_Valid)%>%
+  arrange(Err_Valid)
+
+# Se imprime la tabla de modelos. 
+modelos_gbm
+
+```
+
+Se toman los hiperparámetros de el ``mejor modelo'' bajo el método gbm y se obtienen los siguientes resultados. 
+
+```{r MejorModelo_GBM, cache=TRUE, dependson=c('Calibracion_Hiperparams_gbm')}
+
+# Se corre el modelo gbm con los hiperparámetros que dan el mejor modelo
+mod_gbm_best<-gbm_hiper(n.trees=modelos_gbm$n.trees[1], 
+                     interaction.depth=modelos_gbm$interaction.depth[1],
+                     shrinkage=modelos_gbm$shrinkage[1],
+                     bag.fraction=modelos_gbm$bag.fraction[1])
+
+# Se obtiene el desempeño del modelo en cada árbol agregado. 
+graf_eval<-data.frame(train=sqrt(mod_gbm_best$train.error),
+                      valid=sqrt(mod_gbm_best$valid.error),
+                      n_arbol=1:length(mod_gbm_best$train.error))%>%
+  gather(tipo,error,-n_arbol)
+
+# Se grafica el desemeño del modelo. 
+ggplot(graf_eval,aes(x=n_arbol,y=error,colour=tipo,group=tipo))+geom_line()
+
+```
+
+Se obtiene el ajuste del mejor modelo. 
+```{r MejorModelo_Ajuste_GBM,cache=TRUE, dependson=c('MejorModelo_GBM_gbm')}
+
+# Se obtienen las predicciones de entrenamiento y prueba
+cnt_Train_gbm<-predict.gbm(mod_gbm_best,newdata=train%>%select(-cnt),n.trees=mod_gbm_best$n.trees,type='response')
+cnt_Valid_gbm<-predict.gbm(mod_gbm_best,newdata=valid%>%select(-cnt),n.trees=mod_gbm_best$n.trees,type='response')
+
+# Se grafican los datos .
+data_ajuste_gbm<-data.frame(Muestra=c(rep("Train",nrow(train)),rep("Valid",nrow(valid))),
+                                 Fecha=fecha[1:(ind_test-1)],
+                                 cnt_Obs=c(train$cnt,valid$cnt),
+                                 cnt_Ajust=c(cnt_Train_gbm,cnt_Valid_gbm))
+
+ggplot(data_ajuste_gbm,aes(x=cnt_Obs,y=cnt_Ajust,colour=Muestra))+geom_point()+geom_abline(slope=1,intercept=0,lwd=1.5)  
+
+```
+
+
+<!-- ----------------------COMPARACIÓN DE MODELOS ---------------------- -->
+# Comparación de modelos
+
+## Regresión Lineal con regularización
+
+```{r RegLasso_Prueba, cache=TRUE, dependson=c('datos','lambdas','BestRegLasso')}
+
+# Se extraen los datos de prueba para el modelo. 
+data_x_test_RegLasso<-as.matrix(test%>%select(-cnt))
+data_y_test_RegLasso<-as.matrix(test%>%select(cnt))
+
+# Se evalua la funcion Eval_RegLasso en los datos de prueba
+Eval_test_RegLasso<-Eval_RegLasso(data_x_test_RegLasso,data_y_test_RegLasso)
+
+# Se obtienen las predicciones de cnt
+cnt_test_RegLasso<-predict(mod_RegLasso_best,newx=data_x_test_RegLasso,s=lambda_best)
+
+# Se obtiene el error de prueba
+TestErr_RegLasso<-Eval_test_RegLasso(mod_RegLasso_best,lambda_best)
+
+# # Se grafican las observaciones
+# data_Pred_RegLasso<-data.frame(Id=1:nrow(test),
+#                                Fecha=fecha[ind_test:length(fecha)],
+#                                cnt_Obs=test$cnt,
+#                                cnt_Ajust=as.vector(cnt_test_RegLasso))%>%
+#   gather(Tipo,Cnt,cnt_Obs:cnt_Ajust)%>%mutate(Tipo=substring(Tipo,5))
+# 
+# ggplot(data_Pred_RegLasso,aes(x=Id,y=Cnt,colour=Tipo))+geom_line()
+
+# Se grafican las observaciones
+data_Pred_RegLasso<-data.frame(Fecha=fecha[ind_test:length(fecha)],
+                            cnt_Obs=test$cnt,
+                            cnt_Ajust=as.vector(cnt_test_RegLasso))
+
+ggplot(data_Pred_RegLasso,aes(x=cnt_Obs,y=cnt_Ajust))+geom_point(col='olivedrab')+geom_abline(slope=1,intercept=0,lwd=1.5)
+
+
+```
+
+## Gradient Boosting Machine
+
+Se obtiene el ajuste del mejor modelo gbm para los datos de prueba. 
+```{r gbm_prueba,cache=TRUE, dependson=c('datos','MejorModelo_GBM')}
+
+# Se evalua la función Eval_gbm en la muestra de prueba
+Eval_test_gbm<-Eval_gbm(test)
+
+
+# Se obtienen las predicciones de cnt para la muestra de prueba
+cnt_Test_gbm<-predict.gbm(mod_gbm_best,newdata=test %>% select(-cnt),n.trees=mod_gbm_best$n.trees, type='response')
+
+# Se obtiene el error de prueba
+TestErr_RegLasso<-Eval_test_RegLasso(mod_RegLasso_best,lambda_best)
+
+# Se grafican las observaciones
+data_Pred_gbm<-data.frame(Fecha=fecha[ind_test:length(fecha)],
+                            cnt_Obs=test$cnt,
+                            cnt_Ajust=cnt_Test_gbm)
+
+ggplot(data_Pred_gbm,aes(x=cnt_Obs,y=cnt_Ajust))+geom_point(col='olivedrab')+geom_abline(slope=1,intercept=0,lwd=1.5)
+
+
+```
+
